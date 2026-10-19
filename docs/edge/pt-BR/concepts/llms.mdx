@@ -761,6 +761,38 @@ Nesta seção, você encontrará exemplos detalhados que ajudam a selecionar, co
     [catálogo de modelos selecionado para o CrewAI](https://api.deepinfra.com/v1/openai/models?filter=with_meta&sort_by=crewai),
     que é público e não exige autenticação, para obter os IDs atuais, tamanhos de contexto e preços.
   </Accordion>
+
+  <Accordion title="Runware">
+    O CrewAI se comunica com o Runware pelo cliente OpenAI nativo, então não é necessário instalar o LiteLLM.
+
+    Defina as seguintes variáveis de ambiente no seu arquivo `.env`:
+    ```toml Code
+    # Required
+    RUNWARE_API_KEY=<your-api-key>
+
+    # Optional, point at a proxy or a private deployment endpoint
+    RUNWARE_BASE_URL=https://api.runware.ai/v1
+    ```
+
+    Exemplo de uso em seu projeto CrewAI:
+    ```python Code
+    llm = LLM(
+        model="runware/openai-gpt-5-4",
+        temperature=0.7
+    )
+    ```
+
+    <Info>
+      Recursos do Runware:
+      - Um único endpoint compatível com OpenAI para modelos da OpenAI, Anthropic, Google, DeepSeek, xAI e outros
+      - Chamada de ferramentas, streaming e conteúdo de raciocínio
+      - Preço por token e tamanho de contexto publicados no catálogo de modelos
+    </Info>
+
+    Os IDs dos modelos são slugs simples como `openai-gpt-5-4` ou `anthropic-claude-sonnet-4-6`, então
+    uma referência completa é `runware/<model-id>`. Consulte o
+    [catálogo de modelos](https://api.runware.ai/v1/models) para obter os IDs atuais, tamanhos de contexto e preços.
+  </Accordion>
 </AccordionGroup>
 
 ## Respostas em streaming

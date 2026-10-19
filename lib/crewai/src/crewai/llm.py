@@ -198,6 +198,7 @@ SUPPORTED_NATIVE_PROVIDERS: Final[list[str]] = [
     "dashscope",
     "snowflake",
     "deepinfra",
+    "runware",
 ]
 
 
@@ -223,6 +224,7 @@ PROVIDER_ALIASES: Final[dict[str, str]] = {
     "dashscope": "dashscope",
     "snowflake": "snowflake",
     "deepinfra": "deepinfra",
+    "runware": "runware",
 }
 
 
@@ -452,6 +454,11 @@ class LLM(BaseLLM):
             parts = model_lower.split("/")
             return len(parts) == 2 and all(parts)
 
+        if provider == "runware":
+            # Runware serves its own catalog of LLM ids (e.g. "openai-gpt-5-4")
+            # through an OpenAI-compatible endpoint, so accept any name.
+            return True
+
         if provider == "snowflake":
             return True
 
@@ -680,6 +687,7 @@ class LLM(BaseLLM):
             "cerebras",
             "dashscope",
             "deepinfra",
+            "runware",
         }
         if provider in openai_compatible_providers:
             from crewai.llms.providers.openai_compatible.completion import (

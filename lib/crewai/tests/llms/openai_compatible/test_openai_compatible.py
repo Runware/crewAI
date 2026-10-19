@@ -103,6 +103,14 @@ class TestProviderRegistry:
         assert config.base_url_env == "DEEPINFRA_BASE_URL"
         assert config.api_key_required is True
 
+    def test_runware_config(self):
+        """Test Runware provider configuration."""
+        config = OPENAI_COMPATIBLE_PROVIDERS["runware"]
+        assert config.base_url == "https://api.runware.ai/v1"
+        assert config.api_key_env == "RUNWARE_API_KEY"
+        assert config.base_url_env == "RUNWARE_BASE_URL"
+        assert config.api_key_required is True
+
 
 class TestNormalizeOllamaBaseUrl:
     """Tests for _normalize_ollama_base_url helper."""
@@ -178,6 +186,13 @@ class TestOpenAICompatibleCompletion:
             OpenAICompatibleCompletion(
                 model="deepseek-ai/DeepSeek-V4-Flash-0731", provider="deepinfra"
             )
+
+    def test_runware_missing_api_key_names_env_var(self):
+        """Runware requires a key; the error tells the user which env var to set."""
+        with patch.dict(os.environ, {}, clear=True), pytest.raises(
+            ValueError, match="RUNWARE_API_KEY"
+        ):
+            OpenAICompatibleCompletion(model="openai-gpt-5-4", provider="runware")
 
     def test_api_key_from_env(self):
         """Test API key is read from environment variable."""
@@ -409,6 +424,51 @@ class TestLLMIntegration:
     def test_deepinfra_requires_an_org_and_a_model(self, model, expected):
         """DeepInfra references are exactly org/model: one slash, both parts present."""
         assert LLM._matches_provider_pattern(model, "deepinfra") is expected
+
+    def test_llm_creates_openai_compatible_for_runware(self):
+        """Test LLM factory creates OpenAICompatibleCompletion for Runware."""
+        with patch.dict(os.environ, {"RUNWARE_API_KEY": "test-key"}):
+            llm = LLM(model="runware/openai-gpt-5-4")
+            assert isinstance(llm, OpenAICompatibleCompletion)
+            assert llm.provider == "runware"
+            # Runware ids are plain slugs, so the part after the provider
+            # prefix must reach the API intact.
+            assert llm.model == "openai-gpt-5-4"
+            assert llm.base_url == "https://api.runware.ai/v1"
+
+    def test_runware_base_url_env_override(self):
+        """RUNWARE_BASE_URL redirects Runware to a proxy or private endpoint."""
+        with patch.dict(
+            os.environ,
+            {
+                "RUNWARE_API_KEY": "test-key",
+                "RUNWARE_BASE_URL": "https://proxy.example.com/v1",
+            },
+        ):
+            llm = LLM(model="runware/anthropic-claude-sonnet-4-6")
+            assert isinstance(llm, OpenAICompatibleCompletion)
+            assert llm.base_url == "https://proxy.example.com/v1"
+
+    def test_llm_creates_openai_compatible_for_runware_explicit_provider(self):
+        """Explicit provider="runware" routes natively without the model prefix."""
+        with patch.dict(os.environ, {"RUNWARE_API_KEY": "test-key"}):
+            llm = LLM(model="openai-gpt-5-4", provider="runware")
+            assert isinstance(llm, OpenAICompatibleCompletion)
+            assert llm.provider == "runware"
+            assert llm.model == "openai-gpt-5-4"
+
+    @pytest.mark.parametrize(
+        "model",
+        [
+            "openai-gpt-5-4",
+            "anthropic-claude-sonnet-4-6",
+            "google-gemini-3-1-pro",
+            "deepseek-v4-flash",
+        ],
+    )
+    def test_runware_accepts_any_model_name(self, model):
+        """Runware serves its own catalog of plain-slug ids, so any name matches."""
+        assert LLM._matches_provider_pattern(model, "runware") is True
 
     def test_llm_with_explicit_provider(self):
         """Test LLM with explicit provider parameter."""
