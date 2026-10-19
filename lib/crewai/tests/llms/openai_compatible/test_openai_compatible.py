@@ -103,6 +103,14 @@ class TestProviderRegistry:
         assert config.base_url_env == "DEEPINFRA_BASE_URL"
         assert config.api_key_required is True
 
+    def test_runware_config(self):
+        """Test Runware provider configuration."""
+        config = OPENAI_COMPATIBLE_PROVIDERS["runware"]
+        assert config.base_url == "https://api.runware.ai/v1"
+        assert config.api_key_env == "RUNWARE_API_KEY"
+        assert config.base_url_env == "RUNWARE_BASE_URL"
+        assert config.api_key_required is True
+
 
 class TestNormalizeOllamaBaseUrl:
     """Tests for _normalize_ollama_base_url helper."""
@@ -177,6 +185,15 @@ class TestOpenAICompatibleCompletion:
         ):
             OpenAICompatibleCompletion(
                 model="deepseek-ai/DeepSeek-V4-Flash-0731", provider="deepinfra"
+            )
+
+    def test_runware_missing_api_key_names_env_var(self):
+        """Runware requires a key; the error tells the user which env var to set."""
+        with patch.dict(os.environ, {}, clear=True), pytest.raises(
+            ValueError, match="RUNWARE_API_KEY"
+        ):
+            OpenAICompatibleCompletion(
+                model="google-gemini-3-1-flash-lite", provider="runware"
             )
 
     def test_api_key_from_env(self):
@@ -360,6 +377,36 @@ class TestLLMIntegration:
             assert isinstance(llm, OpenAICompatibleCompletion)
             assert llm.provider == "deepinfra"
             assert llm.model == "deepseek-ai/DeepSeek-V4-Flash-0731"
+
+    def test_llm_creates_openai_compatible_for_runware(self):
+        """Test LLM factory creates OpenAICompatibleCompletion for Runware."""
+        with patch.dict(os.environ, {"RUNWARE_API_KEY": "test-key"}):
+            llm = LLM(model="runware/google-gemini-3-1-flash-lite")
+            assert isinstance(llm, OpenAICompatibleCompletion)
+            assert llm.provider == "runware"
+            assert llm.model == "google-gemini-3-1-flash-lite"
+            assert llm.base_url == "https://api.runware.ai/v1"
+
+    def test_runware_base_url_env_override(self):
+        """RUNWARE_BASE_URL redirects Runware to a proxy or private endpoint."""
+        with patch.dict(
+            os.environ,
+            {
+                "RUNWARE_API_KEY": "test-key",
+                "RUNWARE_BASE_URL": "https://proxy.example.com/v1",
+            },
+        ):
+            llm = LLM(model="runware/openai-gpt-5-4")
+            assert isinstance(llm, OpenAICompatibleCompletion)
+            assert llm.base_url == "https://proxy.example.com/v1"
+
+    def test_llm_creates_openai_compatible_for_runware_explicit_provider(self):
+        """Explicit provider="runware" routes natively without the model prefix."""
+        with patch.dict(os.environ, {"RUNWARE_API_KEY": "test-key"}):
+            llm = LLM(model="google-gemini-3-1-flash-lite", provider="runware")
+            assert isinstance(llm, OpenAICompatibleCompletion)
+            assert llm.provider == "runware"
+            assert llm.model == "google-gemini-3-1-flash-lite"
 
     @pytest.mark.parametrize(
         "model",
